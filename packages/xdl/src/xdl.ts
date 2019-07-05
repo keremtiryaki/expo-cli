@@ -156,11 +156,9 @@ export { Utils };
 import * as Versions from './Versions';
 export { Versions };
 
-// @ts-ignore untyped module yet to be converted to TypeScript
 import * as Web from './Web';
 export { Web };
 
-// @ts-ignore untyped module yet to be converted to TypeScript
 import * as Webpack from './Webpack';
 export { Webpack };
 

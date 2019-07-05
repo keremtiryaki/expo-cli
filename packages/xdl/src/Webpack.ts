@@ -1,6 +1,3 @@
-/**
- * @flow
- */
 import * as ConfigUtils from '@expo/config';
 import { choosePort, prepareUrls } from 'react-dev-utils/WebpackDevServerUtils';
 import webpack from 'webpack';
@@ -10,11 +7,12 @@ import createWebpackCompiler from './createWebpackCompiler';
 import * as ProjectUtils from './project/ProjectUtils';
 import * as ProjectSettings from './ProjectSettings';
 import * as Web from './Web';
+// @ts-ignore missing types for Doctor until it gets converted to TypeScript
 import * as Doctor from './project/Doctor';
 import XDLError from './XDLError';
 import ip from './ip';
 
-import type { User as ExpUser } from './User'; //eslint-disable-line
+import { User as ExpUser } from './User';
 
 const HOST = '0.0.0.0';
 const DEFAULT_PORT = 19006;
@@ -23,16 +21,20 @@ const WEBPACK_LOG_TAG = 'expo';
 let webpackDevServerInstance: WebpackDevServer | null = null;
 let webpackServerPort: number | null = null;
 
-export function getServer(projectRoot: string) {
+export function getServer(projectRoot: string): WebpackDevServer | null {
   if (webpackDevServerInstance == null) {
     ProjectUtils.logError(projectRoot, WEBPACK_LOG_TAG, 'Webpack is not running.');
   }
   return webpackDevServerInstance;
 }
 
-async function choosePortAsync(): Promise<number | null> {
+async function choosePortAsync(): Promise<number> {
   try {
-    return await choosePort(HOST, DEFAULT_PORT);
+    const port = await choosePort(HOST, DEFAULT_PORT);
+    if (port == null) {
+      throw new Error(`port ${DEFAULT_PORT} not available.`);
+    }
+    return port;
   } catch (error) {
     throw new XDLError('NO_PORT_FOUND', 'No available port found: ' + error.message);
   }
@@ -40,19 +42,19 @@ async function choosePortAsync(): Promise<number | null> {
 
 export async function startAsync(
   projectRoot: string,
-  { nonInteractive }: Object,
+  { nonInteractive }: { nonInteractive?: boolean },
   verbose: boolean
-): Promise<{ url: string, server: WebpackDevServer }> {
+): Promise<{ url: string | null; server: WebpackDevServer | null } | null> {
   await Doctor.validateWebSupportAsync(projectRoot);
 
   if (webpackDevServerInstance) {
     ProjectUtils.logError(projectRoot, WEBPACK_LOG_TAG, 'Webpack is already running.');
-    return;
+    return null;
   }
 
   const useYarn = ConfigUtils.isUsingYarn(projectRoot);
 
-  const { exp } = await ProjectUtils.readConfigJsonAsync(projectRoot);
+  const { exp } = await ConfigUtils.readConfigJsonAsync(projectRoot);
   const { webName } = ConfigUtils.getNameFromConfig(exp);
 
   let { dev, https } = await ProjectSettings.readAsync(projectRoot);
@@ -67,36 +69,37 @@ export async function startAsync(
     info: Web.isInfoEnabled(),
   });
 
-  webpackServerPort = await choosePortAsync();
+  const port = await choosePortAsync();
   ProjectUtils.logInfo(
     projectRoot,
     WEBPACK_LOG_TAG,
-    `Starting Webpack on port ${webpackServerPort} in ${chalk.underline(mode)} mode.`
+    `Starting Webpack on port ${port} in ${chalk.underline(mode)} mode.`
   );
 
   const protocol = https ? 'https' : 'http';
-  const urls = prepareUrls(protocol, '::', webpackServerPort);
+  const urls = prepareUrls(protocol, '::', port);
 
   await new Promise(resolve => {
     // Create a webpack compiler that is configured with custom messages.
     const compiler = createWebpackCompiler({
       projectRoot,
       nonInteractive,
-      webpack,
+      webpackFactory: webpack,
       appName: webName,
       config,
       urls,
       useYarn,
       onFinished: resolve,
     });
-    webpackDevServerInstance = new WebpackDevServer(compiler, config.devServer);
+    const devServer = new WebpackDevServer(compiler, config.devServer || {});
     // Launch WebpackDevServer.
-    webpackDevServerInstance.listen(webpackServerPort, HOST, error => {
+    devServer.listen(port, HOST, error => {
       if (error) {
-        ProjectUtils.logError(projectRoot, WEBPACK_LOG_TAG, error);
+        ProjectUtils.logError(projectRoot, WEBPACK_LOG_TAG, error.message);
       }
-      // clearConsole();
     });
+    webpackDevServerInstance = devServer;
+    webpackServerPort = port;
   });
 
   await ProjectSettings.setPackagerInfoAsync(projectRoot, {
@@ -109,7 +112,7 @@ export async function startAsync(
   };
 }
 
-export async function getUrlAsync(projectRoot: string): Promise<string> {
+export async function getUrlAsync(projectRoot: string): Promise<string | null> {
   const devServer = getServer(projectRoot);
   if (!devServer) {
     return null;
@@ -130,7 +133,8 @@ export async function getProtocolAsync(projectRoot: string): Promise<'http' | 'h
 
 export async function stopAsync(projectRoot: string): Promise<void> {
   if (webpackDevServerInstance) {
-    await new Promise(resolve => webpackDevServerInstance.close(() => resolve()));
+    const server = webpackDevServerInstance;
+    await new Promise(resolve => server.close(() => resolve()));
     webpackDevServerInstance = null;
     webpackServerPort = null;
     // TODO
@@ -140,7 +144,14 @@ export async function stopAsync(projectRoot: string): Promise<void> {
   }
 }
 
-export async function bundleAsync(projectRoot: string, packagerOpts: Object): Promise<void> {
+export async function bundleAsync(
+  projectRoot: string,
+  packagerOpts: {
+    dev: boolean;
+    polyfill: boolean;
+    pwa: boolean;
+  }
+): Promise<void> {
   await Doctor.validateWebSupportAsync(projectRoot);
   const mode = packagerOpts.dev ? 'development' : 'production';
   process.env.BABEL_ENV = mode;
