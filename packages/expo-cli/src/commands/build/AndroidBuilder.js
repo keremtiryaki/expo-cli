@@ -187,32 +187,32 @@ See https://docs.expo.io/versions/latest/distribution/building-standalone-apps/#
         },
       ];
 
-      const answers = await prompt(questions);
+      // const answers = await prompt(questions);
 
-      if (!answers.uploadKeystore) {
-        if (this.options.clearCredentials && credentialsExist) {
-          await this._clearCredentials();
-        }
-        // just continue
-      } else {
-        const { keystorePath, keystoreAlias, keystorePassword, keyPassword } = answers;
-
-        // read the keystore
-        const keystoreData = await fs.readFile(keystorePath);
-
-        const credentials = {
-          keystore: keystoreData.toString('base64'),
-          keystoreAlias,
-          keystorePassword,
-          keyPassword,
-        };
-        await Credentials.updateCredentialsForPlatform(
-          ANDROID,
-          credentials,
-          [],
-          credentialMetadata
-        );
+      // if (!answers.uploadKeystore) {
+      if (this.options.clearCredentials && credentialsExist) {
+        await this._clearCredentials();
       }
+      // just continue
+      // } else {
+      //   const { keystorePath, keystoreAlias, keystorePassword, keyPassword } = answers;
+
+      //   // read the keystore
+      //   const keystoreData = await fs.readFile(keystorePath);
+
+      //   const credentials = {
+      //     keystore: keystoreData.toString('base64'),
+      //     keystoreAlias,
+      //     keystorePassword,
+      //     keyPassword,
+      //   };
+      //   await Credentials.updateCredentialsForPlatform(
+      //     ANDROID,
+      //     credentials,
+      //     [],
+      //     credentialMetadata
+      //   );
+      // }
     }
   }
 
