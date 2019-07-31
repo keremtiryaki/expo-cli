@@ -17,4 +17,7 @@ yarn run bootstrap
 then use builded version via 
 /usr/local/opt/node@10/bin/node /Users/k/Desktop/Projects/EPOS/public/expo-cli/packages/expo-cli/bin/expo.js
 
+
+and add
+echo "alias expo='/usr/local/opt/node@10/bin/node /Users/k/Desktop/Projects/EPOS/public/expo-cli/packages/expo-cli/bin/expo.js'" >> ~/.bash_profile
 ```
